@@ -1,0 +1,53 @@
+name: WarPlaginForE
+version: '1.10.2'
+main: com.examle.WarPlaginForE
+api-version: '1.21'
+commands:
+  setruler:
+    description: "Назначить игрока правителем"
+    usage: "/setruler <игрок>"
+  addplayer:
+    description: "Добавляет игрока в команду"
+    usage: "/addplayer <игрок>"
+  removeplayer:
+    description: "Удаляет игрока из команды"
+    usage: "/removeplayer <игрок>"
+  choosestrategy:
+    description: "Выбор тактики"
+    usage: "/choosestrategy <тактика>"
+  listmyarmy:
+    description: "Показывает всех участников вашей команды"
+    usage: "/listmyarmy"
+  removeruler:
+    description: "Удаляет игрока с поста правителя"
+    usage: "/removeruler"
+  SeeListArmy:
+    description: "Посмотреть список команды правителя по его нику"
+    usage: "/SeeListArmy <ник_правителя>"
+  listruler:
+    description: "Показывает список всех правителей"
+    usage: "/listruler"
+  seemycommands:
+    description: "Показать правителя и список команды"
+    usage: "/seemycommands"
+
+
+permissions:
+  warplugin.setruler:
+    description: "Позволяет устанавливать правителей"
+    default: op
+  warplugin.addplayer:
+    description: "Позволяет добавлять игроков в команду"
+    default: op
+  warplugin.removeplayer:
+    description: "Позволяет удалять игроков из команды"
+    default: op
+  warplugin.choosestrategy:
+    description: "Позволяет выбирать стратегии"
+    default: op
+  warplugin.removeruler:
+    description: "Позволяет удалять правителей"
+    default: op
+  warplugin.listmyarmy:
+    description: "Позволяет просматривать свою команду"
+    default: op

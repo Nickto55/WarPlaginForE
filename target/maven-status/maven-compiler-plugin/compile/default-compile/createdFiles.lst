@@ -1,0 +1,16 @@
+com\examle\PermissionManager.class
+com\examle\RulerManager$1.class
+com\examle\RemoveRulerCommandExecutor.class
+com\examle\ListRulerCommandExecutor.class
+com\examle\WarPlaginForE.class
+com\examle\ChooseStrategyTabCompleter.class
+org\example1\warPlaginForE\WarPlaginForE.class
+com\examle\ChooseStrategyCommandExecutor.class
+com\examle\ListMyArmyCommandExecutor.class
+com\examle\SeeListArmyCommandExecutor.class
+com\examle\RulerManager.class
+com\examle\SetRulerCommandExecutor.class
+com\examle\RemovePlayerCommandExecutor.class
+com\examle\SeeMyComandsCommandExecutor.class
+com\examle\AddPlayerCommandExecutor.class
+com\examle\RulerInventory.class
