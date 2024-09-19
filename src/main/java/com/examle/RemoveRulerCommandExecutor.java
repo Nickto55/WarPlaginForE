@@ -1,5 +1,6 @@
 package com.examle;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -15,39 +16,30 @@ public class RemoveRulerCommandExecutor implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (sender instanceof Player) {
-            Player ruler = (Player) sender;
-
-            if (args.length == 0) {
-                ruler.sendMessage(ChatColor.RED + "Вы должны указать имя правителя.");
-                return false;
-            }
-
-            // Получаем правителя, которого нужно удалить
-            Player targetRuler = ruler.getServer().getPlayer(args[0]);
-
-            if (targetRuler == null) {
-                ruler.sendMessage(ChatColor.RED + "Правитель с таким именем не найден.");
-                return false;
-            }
-
-            // Проверяем, является ли игрок правителем
-            if (!rulerManager.isRuler(targetRuler)) {
-                ruler.sendMessage(ChatColor.RED + "Этот игрок не является правителем.");
-                return false;
-            }
-
-            // Удаляем правителя и его команду
-            if (rulerManager.removeRulerAndTeam(targetRuler)) {
-                ruler.sendMessage(ChatColor.GOLD + "Правитель " + targetRuler.getName() + " и его команда были удалены.");
-
-                // Сохраняем изменения в файл
-                rulerManager.saveRulersToFile();
-            } else {
-                ruler.sendMessage(ChatColor.RED + "Не удалось удалить правителя.");
-            }
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("Эту команду может выполнять только игрок.");
+            return false; // Возвращаем false, чтобы показать, что команда не выполнена
         }
 
-        return true;
+        Player player = (Player) sender;
+
+        if (args.length == 0) {
+            player.sendMessage("Укажите имя правителя для удаления.");
+            return false;
+        }
+
+        String rulerName = args[0];
+        Player ruler = Bukkit.getPlayer(rulerName);
+
+        if (ruler == null || !rulerManager.isRuler(ruler)) {
+            player.sendMessage("Правитель с таким именем не найден.");
+            return false;
+        }
+
+        // Удаление правителя и его команды
+        rulerManager.removeRuler(ruler); // Убедитесь, что этот метод существует в RulerManager
+        player.sendMessage("Правитель " + rulerName + " и его команда были удалены.");
+
+        return true; // Возвращаем true, чтобы показать, что команда выполнена успешно
     }
 }

@@ -1,5 +1,5 @@
 name: WarPlaginForE
-version: '1.10.2'
+version: '1.16.3'
 main: com.examle.WarPlaginForE
 api-version: '1.21'
 commands:

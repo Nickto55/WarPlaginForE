@@ -1,334 +1,273 @@
 package com.examle;
 
-import com.google.gson.Gson;
-
-import com.google.common.reflect.TypeToken;
-import org.bukkit.ChatColor;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
-import java.io.*;
-import java.lang.reflect.Type;
-import org.bukkit.plugin.java.JavaPlugin;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.*;
 
 public class RulerManager {
-    private final JavaPlugin plugin;
-    private final File dataFile;
-    private final Map<Player, List<Player>> rulerTeams = new HashMap<>();
-    private final String configFileName = "rulerTeams.yml"; // Название конфигурационного файла
+    private JavaPlugin plugin;
+    private Connection connection; // Объект для соединения с базой данных
+    private Map<Player, List<Player>> rulers; // Ключ - правитель, значение - команда
 
-//    // Инициализируем dataFile, указывая путь к файлу, где будут храниться данные
-//    this.dataFile = new File(plugin.getDataFolder(), "rulersData.yml");
-    public RulerManager(JavaPlugin plugin) {
+    private final Map<Player, String> tactics = new HashMap<>();
+    private final DatabaseManager databaseManager;
+
+    public RulerManager(DatabaseManager databaseManager) {
+        this.databaseManager = databaseManager;
+    }
+
+    public void addRuler(String rulerName) throws SQLException {
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement("INSERT INTO rulers (ruler_name) VALUES (?)")) {
+            statement.setString(1, rulerName);
+            statement.executeUpdate();
+        }
+    }
+
+
+    public RulerManager(JavaPlugin plugin, DatabaseManager databaseManager) {
         this.plugin = plugin;
+        this.databaseManager = databaseManager;
+        initializeDatabase(); // Инициализация базы данных при создании менеджера
+    }
 
-        // Инициализируем dataFile, указывая путь к файлу, где будут храниться данные
-        this.dataFile = new File(plugin.getDataFolder(), "rulersData.yml");
+    public void addPlayerToTeam(Player ruler, Player player) {
+        // Проверяем, является ли игрок правителем
+        if (!rulers.containsKey(ruler)) {
+            // Если нет, создаем новую команду для правителя
+            rulers.put(ruler, new ArrayList<>());
+        }
 
-        // Проверяем, существует ли папка плагина, и создаем её, если нет
-        if (!plugin.getDataFolder().exists()) {
-            plugin.getDataFolder().mkdirs();
+        // Добавляем игрока в команду правителя
+        List<Player> team = rulers.get(ruler);
+        if (!team.contains(player)) {
+            team.add(player);
         }
     }
 
-
-    Gson gson = new Gson();
-    private Map<Player, String> rulerTactics = new HashMap<>();
-
-    private Map<Player, List<Player>> rulers = new HashMap<>();
-//    private File dataFile;
-
-    public void setTactic(Player ruler, String tactic) {
-        rulerTactics.put(ruler, tactic);
-        applyTacticToTeam(ruler, tactic); // Применяем эффекты для команды правителя
+    public Player getRulerForPlayer(Player player) {
+        for (Map.Entry<Player, List<Player>> entry : rulers.entrySet()) {
+            Player ruler = entry.getKey();
+            List<Player> team = entry.getValue();
+            if (team.contains(player)) {
+                return ruler;
+            }
+        }
+        return null; // Если правитель не найден
     }
 
-    private Map<Player, List<Player>> teams;
+    public List<Player> getTeam(Player ruler) {
+        return rulers.getOrDefault(ruler, new ArrayList<>());
+    }
 
 
-    public boolean removeRulerAndTeam(Player ruler) {
-        // Получаем команду правителя
-        List<Player> team = teams.get(ruler);
+    // Метод для инициализации соединения с базой данных
+    private void initializeDatabase() {
+        try {
+            // Замените URL, USERNAME и PASSWORD на соответствующие значения
+            String url = "jdbc:mysql://localhost:3306/war_plugin_db";
+            String user = "root";
+            String password = "yourpassword";
+            connection = DriverManager.getConnection(url, user, password);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            plugin.getLogger().severe("Не удалось подключиться к базе данных.");
+        }
+    }
 
-        // Если правителя нет в списке, возвращаем false
-        if (team == null) {
-            return false;
+    public Map<Player, List<Player>> getRulersMap() {
+        Map<Player, List<Player>> rulersMap = new HashMap<>();
+        List<Ruler> rulers = getAllRulers();
+
+        for (Ruler ruler : rulers) {
+            Player rulerPlayer = Bukkit.getPlayer(ruler.getName());
+            if (rulerPlayer != null) {
+                List<Player> team = getTeamFromRuler(ruler); // Метод для получения команды
+                rulersMap.put(rulerPlayer, team);
+            }
         }
 
-        // Удаляем всех игроков из команды
-        teams.remove(ruler);
-
-        // Сохраняем изменения в файл
-        saveRulersToFile();
-
-        return true;
+        return rulersMap;
     }
 
-    public Map<Player, List<Player>> getAllRulers() {
+    private List<Player> getTeamFromRuler(Ruler ruler) {
+        // Реализуйте метод для получения команды из Ruler
+        // Например, это может быть List<Player>, если у вас есть соответствующие данные
+        List<Player> team = new ArrayList<>();
+        for (String playerName : ruler.getTeamNames()) {
+            Player player = Bukkit.getPlayer(playerName);
+            if (player != null) {
+                team.add(player);
+            }
+        }
+        return team;
+    }
+
+    // Метод для назначения игрока правителем
+    public void setRuler(Player ruler) {
+        // Создаем пустую команду для нового правителя
+        rulers.put(ruler, new ArrayList<>());
+
+        // Дополнительно можете сохранить правителя в базу данных
+        try (Connection connection = getDatabaseConnection()) {
+            String query = "INSERT INTO rulers (ruler_name, team_names) VALUES (?, ?)";
+            try (PreparedStatement statement = connection.prepareStatement(query)) {
+                statement.setString(1, ruler.getName());
+                statement.setString(2, ""); // Пустой список команды
+                statement.executeUpdate();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Метод для получения соединения с базой данных
+    private Connection getDatabaseConnection() throws SQLException {
+        // Ваш код для получения соединения с базой данных
+        return DriverManager.getConnection("jdbc:mysql://localhost:3306/war_plugin_db", "root", "yourpassword");
+    }
+
+    // Метод для сохранения правителей в базу данных
+    public void saveRulersToDatabase() {
+        if (connection == null) {
+            plugin.getLogger().severe("Соединение с базой данных не инициализировано.");
+            return;
+        }
+
+        String sql = "INSERT INTO rulers (ruler_name, team_names) VALUES (?, ?)";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            List<Ruler> rulers = getAllRulers(); // Получение всех правителей
+            for (Ruler ruler : rulers) {
+                statement.setString(1, ruler.getName());
+                statement.setString(2, String.join(",", ruler.getTeamNames()));
+                statement.executeUpdate();
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            plugin.getLogger().severe("Ошибка при сохранении правителей в базу данных.");
+        }
+    }
+
+    // Метод для получения всех правителей из базы данных
+    public List<Ruler> getAllRulers() {
+        List<Ruler> rulers = new ArrayList<>();
+        String sql = "SELECT ruler_name, team_names FROM rulers";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet resultSet = statement.executeQuery()) {
+
+            while (resultSet.next()) {
+                String name = resultSet.getString("ruler_name");
+                String teamNamesString = resultSet.getString("team_names");
+                List<String> teamNames = Arrays.asList(teamNamesString.split(","));
+                Ruler ruler = new Ruler(name, teamNames);
+                rulers.add(ruler);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            plugin.getLogger().severe("Ошибка при получении правителей из базы данных.");
+        }
         return rulers;
     }
 
-//    private final Map<Player, List<Player>> rulerTeams = new HashMap<>();
-
-    public void applyTacticToTeam(Player ruler, String tactic) {
-        List<Player> team = getTeam(ruler);
-        // Получаем команду правителя
-        if (team == null || team.isEmpty()) {
-            ruler.sendMessage(ChatColor.GRAY + "У вас нет команды для применения тактики.");
-            ruler.sendMessage(ChatColor.GRAY + "Вы ничтожны!");
-            return;
-        }
-        for (Player player : team) {
-            clearPlayerEffects(ruler);
-
-            // Убираем предыдущие эффекты со всей команды
-            clearPlayerEffects(player);  // Метод для очистки эффектов
-
-            // Применяем новую тактику
-            applyTacticEffects(player, tactic);
-            applyTacticEffects(ruler, tactic);
-        }
-    }
-
-    private void clearPlayerEffects(Player player) {
-        for (PotionEffect effect : player.getActivePotionEffects()) {
-            player.removePotionEffect(effect.getType());
-        }
-    }
-
-    private void loadTeams() {
-        FileConfiguration config = plugin.getConfig();
-        // Логика загрузки данных из конфигурационного файла в rulerTeams
-        // Пример загрузки:
-         for (String rulerName : config.getKeys(false)) {
-             Player ruler = getPlayerByName(rulerName); // Метод получения игрока по имени
-             if (ruler != null) {
-                 List<Player> team = new ArrayList<>();
-                 for (String playerName : config.getStringList(rulerName)) {
-                     Player player = getPlayerByName(playerName); // Метод получения игрока по имени
-                     if (player != null) {
-                         team.add(player);
-                     }
-                 }
-                 rulerTeams.put(ruler, team);
-             }
-         }
-    }
-
-
-//    public RulerManager(JavaPlugin plugin) {
-//        this.plugin = plugin;
-//        loadTeams(); // Загружаем команды из конфигурации при инициализации
-//    }
-
-    // Метод для сохранения правителей и их команд
-    public void saveRulers() {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter("rulers.txt"))) {
-            for (Map.Entry<Player, List<Player>> entry : rulers.entrySet()) {
-                Player ruler = entry.getKey();
-                List<Player> team = entry.getValue();
-
-                // Проверяем, что команда не null
-                if (team != null) {
-                    writer.write(ruler.getName() + ": ");
-                    for (Player member : team) {
-                        writer.write(member.getName() + " ");
-                    }
-                    writer.newLine();
-                } else {
-                    // Если команда null, просто сохраняем имя правителя без команды
-                    writer.write(ruler.getName() + ": No team");
-                    writer.newLine();
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void saveRulersToFile() {
-        try (Writer writer = new FileWriter(dataFile)) {
-            Map<String, List<String>> rulerData = new HashMap<>();
-            for (Map.Entry<Player, List<Player>> entry : rulers.entrySet()) {
-                String rulerName = entry.getKey().getName();
-                List<String> teamNames = new ArrayList<>();
-                for (Player player : entry.getValue()) {
-                    teamNames.add(player.getName());
-                }
-                rulerData.put(rulerName, teamNames);
-            }
-            gson.toJson(rulerData, writer);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private Map<Player, List<Player>> rulerData = new HashMap<>(); // Инициализация
-
-    public void loadRulersFromFile() {
-
-        if (!dataFile.exists()) return;
-        try (Reader reader = new FileReader(dataFile)) {
-            Type type = new TypeToken<Map<String, List<String>>>() {
-            }.getType();
-            Map<String, List<String>> rulerData = gson.fromJson(reader, type);
-            for (Map.Entry<String, List<String>> entry : rulerData.entrySet()) {
-                Player ruler = getPlayerByName(entry.getKey());
-                List<Player> team = new ArrayList<>();
-                for (String playerName : entry.getValue()) {
-                    Player teamPlayer = getPlayerByName(playerName);
-                    if (teamPlayer != null) {
-                        team.add(teamPlayer);
-                    }
-                }
-                rulers.put(ruler, team);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private Player getPlayerByName(String name) {
-        return org.bukkit.Bukkit.getPlayer(name);
-    }
-
-    public void setRuler(Player ruler, List<Player> team) {
-        rulers.put(ruler, team);
-    }
-
-    // Получение команды игрока
-    public List<Player> getTeam(Player player) {
-        return rulerTeams.getOrDefault(player, new ArrayList<>());
-    }
-
-
-
-//    public void removeRuler(Player ruler) {
-//        rulers.remove(ruler);
-//    }
-
-    // Метод для загрузки правителей из файла
-    public void loadRulers() {
-        FileConfiguration config = YamlConfiguration.loadConfiguration(dataFile);
-
-        for (String rulerName : config.getKeys(false)) {
-            Player ruler = findPlayerByName(rulerName); // Ищем правителя по имени
-            List<String> teamNames = config.getStringList(rulerName);
-
-            List<Player> team = new ArrayList<>();
-            for (String playerName : teamNames) {
-                Player teamMember = findPlayerByName(playerName); // Ищем игрока по имени
-                if (teamMember != null) {
-                    team.add(teamMember);
-                }
-            }
-
-            if (ruler != null) {
-                rulers.put(ruler, team); // Восстанавливаем команду правителя
-            }
-        }
-    }
-
-    // Простой метод для поиска игрока по имени
-    private Player findPlayerByName(String playerName) {
-        return org.bukkit.Bukkit.getPlayer(playerName);
-    }
-
-    // Методы для управления правителями и командами (уже реализованы)
-//    public void setRuler(Player ruler, List<Player> team) throws IOException {
-//        BufferedWriter writer = new BufferedWriter(new FileWriter("rulers.txt"));
-//        if (team != null) {
-//            writer.write(ruler.getName() + ": ");
-//            for (Player member : team) {
-//                writer.write(member.getName() + " ");
-//            }
-//            writer.newLine();
-//        } else {
-//            // Если команда null, просто сохраняем имя правителя без команды
-//            writer.write(ruler.getName() + ": No team");
-//            writer.newLine();
-//        }
-//        rulers.put(ruler, team);
-//        saveRulers(); // Сохраняем данные после изменения
-//    }
-    public void setRuler(Player ruler) {
-        rulers.put(ruler, null);
-        saveRulers(); // Сохраняем данные после изменения
+    public boolean isRuler(Player player) {
+        // Проверьте, является ли игрок правителем, используя вашу логику
+        // Например, если у вас есть список правителей
+        return rulers.containsKey(player);
     }
 
     public void removeRuler(Player ruler) {
+        // Удаление правителя из вашей структуры данных
+        // Удаление команды правителя, если нужно
         rulers.remove(ruler);
-        saveRulers(); // Сохраняем данные после изменения
+
+        // Обновите базу данных, если нужно
+        saveRulersToDatabase();
     }
 
-//    public List<Player> getTeam(Player ruler) {
-//        return rulers.getOrDefault(ruler, new ArrayList<>());
-//    }
+    // Метод для удаления игрока из команды правителя
+    public boolean removePlayerFromTeam(Player playerToRemove) {
+        // Получаем правителя игрока
+        Player ruler = getRulerForPlayer(playerToRemove);
 
-    // Метод проверки, является ли игрок правителем
-    public boolean isRuler(Player player) {
-        // Реализуйте логику проверки правителя
-        return true; // Пример, замените по необходимости
-    }
+        // Проверяем, является ли игрок частью команды
+        if (ruler != null && rulers.containsKey(ruler)) {
+            List<Player> team = rulers.get(ruler);
 
-    // Добавление игрока в команду
-    public boolean addPlayerToTeam(Player ruler, Player newPlayer) {
-        // Получаем или создаем список команды правителя
-        List<Player> team = rulerTeams.computeIfAbsent(ruler, k -> new ArrayList<>());
+            // Проверяем, есть ли игрок в команде
+            if (team.remove(playerToRemove)) {
+                // Обновляем список команды правителя в базе данных, если нужно
+                 saveRulersToDatabase(); // Например, можно сохранить изменения в базе данных
 
-        // Если игрок уже в команде, возвращаем false
-        if (team.contains(newPlayer)) {
-            return false;
-        }
-
-        // Добавляем игрока в команду и сохраняем изменения
-        team.add(newPlayer);
-        saveTeams();
-        return true;
-    }
-
-    public boolean removePlayerFromTeam(Player ruler, Player player) {
-        if (rulers.containsKey(ruler)) {
-            rulers.get(ruler).remove(player);
-            saveRulers(); // Сохраняем изменения
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    // Получаем правителя для игрока
-    public Player getRulerForPlayer(Player player) {
-        for (Map.Entry<Player, List<Player>> entry : rulers.entrySet()) {
-            if (entry.getValue().contains(player)) {
-                return entry.getKey();
+                return true; // Игрок успешно удален
             }
         }
-        return null;
+
+        return false; // Игрок не был найден или не был удален
     }
 
-    // Сохранение данных команды в конфигурационный файл
-    private void saveTeams() {
-        FileConfiguration config = plugin.getConfig();
-        // Логика сохранения данных из rulerTeams в конфигурационный файл
-        // Пример сохранения:
-         for (Map.Entry<Player, List<Player>> entry : rulerTeams.entrySet()) {
-             String rulerName = entry.getKey().getName();
-             List<String> playerNames = new ArrayList<>();
-             for (Player player : entry.getValue()) {
-                 playerNames.add(player.getName());
-             }
-             config.set(rulerName, playerNames);
-         }
-         plugin.saveConfig(); // Сохраняем изменения в конфигурационном файле
+    // Метод для обновления команды правителя в базе данных
+    private void updateTeamInDatabase(Player ruler, List<Player> team) {
+        try (Connection connection = getDatabaseConnection()) {
+            String query = "UPDATE rulers SET team_names = ? WHERE ruler_name = ?";
+            try (PreparedStatement statement = connection.prepareStatement(query)) {
+                // Преобразуем список игроков в строку
+                String teamNames = String.join(",", team.stream().map(Player::getName).toArray(String[]::new));
+                statement.setString(1, teamNames);
+                statement.setString(2, ruler.getName());
+                statement.executeUpdate();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Закрытие соединения при отключении плагина
+    public void closeConnection() {
+        if (connection != null) {
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+                plugin.getLogger().severe("Ошибка при закрытии соединения с базой данных.");
+            }
+        }
+    }
+    // Метод для установки тактики для правителя
+    public boolean setTactic(Player ruler, String tactic) {
+        if (ruler == null || tactic == null || tactic.isEmpty()) {
+            return false; // Не удалось установить тактику из-за некорректных входных данных
+        }
+
+        // Устанавливаем тактику для правителя
+        applyTacticEffects(ruler, tactic);
+        applyTacticToTeam(ruler, tactic);
+        tactics.put(ruler, tactic);
+        return true; // Тактика успешно установлена
+    }
+
+    public String getTactic(Player ruler) {
+        return tactics.getOrDefault(ruler, "Нет тактики"); // Возвращает тактику или сообщение по умолчанию
+    }
+
+    public void applyTacticToTeam(Player ruler, String tactic) {
+        List<Player> team = getTeam(ruler); // Получаем команду правителя
+
+        for (Player member : team) {
+            applyTacticEffects(member, tactic); // Применяем тактику к каждому игроку
+        }
     }
 
     private void applyTacticEffects(Player player, String tactic) {
@@ -356,5 +295,4 @@ public class RulerManager {
                 break;
         }
     }
-
 }

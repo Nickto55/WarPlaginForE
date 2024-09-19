@@ -18,7 +18,7 @@ public class ListRulerCommandExecutor implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        Map<Player, List<Player>> rulers = rulerManager.getAllRulers();
+        Map<Player, List<Player>> rulers = (Map<Player, List<Player>>) rulerManager.getAllRulers();
 
         if (rulers.isEmpty()) {
             sender.sendMessage(ChatColor.YELLOW + "На данный момент нет правителей.");

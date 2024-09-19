@@ -2,57 +2,59 @@ package com.examle;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.sql.SQLException;
+
 public class WarPlaginForE extends JavaPlugin {
 
     private RulerManager rulerManager;
 
+//    private DatabaseManager databaseManager;
+
+    private DatabaseManager databaseManager = new DatabaseManager(); // Инициализация при объявлении
+
+
     @Override
     public void onEnable() {
-        rulerManager = new RulerManager(this);
-        // Инициализация менеджеров
-        RulerManager rulerManager = new RulerManager(this);
-        PermissionManager permissionManager = new PermissionManager();
+        // Инициализация DatabaseManager
+        databaseManager = new DatabaseManager();
 
-        rulerManager.loadRulersFromFile();
+        // Попытка подключения к базе данных
+        try {
+            databaseManager.connect();
+            getLogger().info("Подключение к базе данных установлено успешно.");
+        } catch (SQLException e) {
+            getLogger().severe("Не удалось подключиться к базе данных: " + e.getMessage());
+            getServer().getPluginManager().disablePlugin(this);
+            return; // Прерываем выполнение плагина, если подключение не удалось
+        }
 
-        //добавление/снятия роли правителя
+        RulerManager rulerManager = new RulerManager(databaseManager);
+
+        // Инициализация команд
         getCommand("setruler").setExecutor(new SetRulerCommandExecutor(rulerManager));
         getCommand("removeruler").setExecutor(new RemoveRulerCommandExecutor(rulerManager));
-
-        //Регистрация добавления/удаления игрока в армию/из армии
         getCommand("addplayer").setExecutor(new AddPlayerCommandExecutor(rulerManager));
         getCommand("removeplayer").setExecutor(new RemovePlayerCommandExecutor(rulerManager));
-
-        // Регистрация выбранной тактики и автодополнения
         getCommand("choosestrategy").setExecutor(new ChooseStrategyCommandExecutor(rulerManager));
-        getCommand("choosestrategy").setTabCompleter(new ChooseStrategyTabCompleter()); // Регистрация TabCompleter
-
-        // Регистрация команды для отображения всех правителей
+        getCommand("choosestrategy").setTabCompleter(new ChooseStrategyTabCompleter());
         getCommand("listruler").setExecutor(new ListRulerCommandExecutor(rulerManager));
-
-        // Регистрация команды просмотра армии к которой ты приднадлежиш
-        getCommand("SeeListArmy").setExecutor(new SeeListArmyCommandExecutor(rulerManager));
-
-        // Регистрация команды setruler
-//        getCommand("removeruler").setExecutor(new RemoveRulerCommandExecutor(rulerManager));
-
+        getCommand("seelistarmy").setExecutor(new SeeListArmyCommandExecutor(rulerManager));
         getCommand("seemycommands").setExecutor(new SeeMyComandsCommandExecutor(rulerManager));
-
+        getCommand("listmyarmy").setExecutor(new ListMyArmyCommandExecutor(rulerManager));
 
         // Регистрация событий
         getServer().getPluginManager().registerEvents(new RulerInventory(this), this);
-
-
-        getCommand("listmyarmy").setExecutor(new ListMyArmyCommandExecutor(rulerManager)); // Регистрация команды
-
-        // Регистрация слушателя инвентаря
-        getServer().getPluginManager().registerEvents(new RulerInventory(this), this);
     }
-
 
     @Override
     public void onDisable() {
-        // Логика отключения плагина, если нужно
-        rulerManager.saveRulersToFile();
+        // Закрытие соединения с базой данных
+        if (databaseManager != null) {
+            try {
+                databaseManager.close();
+            } catch (SQLException e) {
+                getLogger().severe("Ошибка при закрытии подключения к базе данных: " + e.getMessage());
+            }
+        }
     }
 }

@@ -35,7 +35,7 @@ public class RemovePlayerCommandExecutor implements CommandExecutor {
                 return false;
             }
 
-            if (rulerManager.removePlayerFromTeam(ruler, targetPlayer)) {
+            if (rulerManager.removePlayerFromTeam(targetPlayer)) {
                 ruler.sendMessage(ChatColor.GOLD + "Игрок " + targetPlayer.getName() + " был удален из вашей команды.");
             } else {
                 ruler.sendMessage(ChatColor.RED + "Игрок " + targetPlayer.getName() + " не находится в вашей команде.");
