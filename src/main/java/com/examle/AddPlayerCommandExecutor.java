@@ -7,8 +7,11 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.List;
+
 public class AddPlayerCommandExecutor implements CommandExecutor {
     private final RulerManager rulerManager;
+    private final FileManager fileManager = new FileManager(); // менеджер для работы с файлами
 
     public AddPlayerCommandExecutor(RulerManager rulerManager) {
         this.rulerManager = rulerManager;
@@ -22,29 +25,28 @@ public class AddPlayerCommandExecutor implements CommandExecutor {
         }
 
         Player player = (Player) sender;
-
         if (args.length == 0) {
-            player.sendMessage("Укажите имя игрока для добавления в команду.");
+            player.sendMessage("Укажите игрока для добавления.");
             return false;
         }
 
-        String targetName = args[0];
-        Player target = Bukkit.getPlayer(targetName);
-
-        if (target == null) {
-            player.sendMessage("Игрок с таким именем не найден.");
+        Player targetPlayer = Bukkit.getPlayer(args[0]);
+        if (targetPlayer == null) {
+            player.sendMessage("Игрок не найден.");
             return false;
         }
 
-        Player ruler = rulerManager.getRulerForPlayer(player);
-        if (ruler == null) {
-            player.sendMessage("Вы не являетесь частью команды правителя.");
+        if (!rulerManager.isRuler(player)) {
+            player.sendMessage("Вы не являетесь правителем.");
             return false;
         }
 
-        rulerManager.addPlayerToTeam(ruler, target);
-        player.sendMessage("Игрок " + targetName + " был добавлен в команду вашего правителя.");
+        List<Player> team = rulerManager.getTeam(player);
+        team.add(targetPlayer);
+        fileManager.saveTeamToFile(player, team); // Сохраняем обновленную команду в файл
 
+        player.sendMessage("Игрок " + targetPlayer.getName() + " добавлен в вашу команду.");
         return true;
     }
 }
+

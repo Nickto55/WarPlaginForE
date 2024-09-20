@@ -6,7 +6,7 @@
 
     <groupId>com.example</groupId>
     <artifactId>WarPlaginForE</artifactId>
-    <version>1.16.3</version>
+    <version>1.22.0</version>
     <packaging>jar</packaging>
 
     <name>WarPlaginForE</name>

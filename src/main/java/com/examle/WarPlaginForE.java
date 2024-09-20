@@ -2,37 +2,27 @@ package com.examle;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.sql.SQLException;
+import java.io.File;
 
 public class WarPlaginForE extends JavaPlugin {
-
     private RulerManager rulerManager;
-
-//    private DatabaseManager databaseManager;
-
-    private DatabaseManager databaseManager = new DatabaseManager(); // Инициализация при объявлении
+    PermissionManager permissionManager = new PermissionManager(); // Инициализация PermissionManager
 
 
     @Override
     public void onEnable() {
-        // Инициализация DatabaseManager
-        databaseManager = new DatabaseManager();
-
-        // Попытка подключения к базе данных
-        try {
-            databaseManager.connect();
-            getLogger().info("Подключение к базе данных установлено успешно.");
-        } catch (SQLException e) {
-            getLogger().severe("Не удалось подключиться к базе данных: " + e.getMessage());
-            getServer().getPluginManager().disablePlugin(this);
-            return; // Прерываем выполнение плагина, если подключение не удалось
+        // Создаем папку для плагина, если ее нет
+        File pluginFolder = this.getDataFolder();
+        if (!pluginFolder.exists()) {
+            pluginFolder.mkdirs();
         }
 
-        RulerManager rulerManager = new RulerManager(databaseManager);
+        // Инициализация менеджера правителей
+        rulerManager = new RulerManager(pluginFolder);
 
-        // Инициализация команд
-        getCommand("setruler").setExecutor(new SetRulerCommandExecutor(rulerManager));
-        getCommand("removeruler").setExecutor(new RemoveRulerCommandExecutor(rulerManager));
+        // Регистрируем команды
+        getCommand("setruler").setExecutor(new SetRulerCommandExecutor(rulerManager, permissionManager));
+        getCommand("removeruler").setExecutor(new RemoveRulerCommandExecutor(rulerManager, permissionManager));
         getCommand("addplayer").setExecutor(new AddPlayerCommandExecutor(rulerManager));
         getCommand("removeplayer").setExecutor(new RemovePlayerCommandExecutor(rulerManager));
         getCommand("choosestrategy").setExecutor(new ChooseStrategyCommandExecutor(rulerManager));
@@ -42,19 +32,13 @@ public class WarPlaginForE extends JavaPlugin {
         getCommand("seemycommands").setExecutor(new SeeMyComandsCommandExecutor(rulerManager));
         getCommand("listmyarmy").setExecutor(new ListMyArmyCommandExecutor(rulerManager));
 
-        // Регистрация событий
-        getServer().getPluginManager().registerEvents(new RulerInventory(this), this);
+        getLogger().info("Плагин WarPlaginForE включен.");
     }
 
     @Override
     public void onDisable() {
-        // Закрытие соединения с базой данных
-        if (databaseManager != null) {
-            try {
-                databaseManager.close();
-            } catch (SQLException e) {
-                getLogger().severe("Ошибка при закрытии подключения к базе данных: " + e.getMessage());
-            }
-        }
+        // Сохранение всех правителей в файл перед отключением
+        rulerManager.saveRulersToFile();
+        getLogger().info("Плагин WarPlaginForE выключен.");
     }
 }

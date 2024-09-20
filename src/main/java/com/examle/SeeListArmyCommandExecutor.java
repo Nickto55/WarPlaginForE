@@ -1,14 +1,10 @@
 package com.examle;
 
-import com.examle.RulerManager;
-import com.examle.SetRulerCommandExecutor;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-
 import java.util.List;
 
 public class SeeListArmyCommandExecutor implements CommandExecutor {
@@ -20,30 +16,35 @@ public class SeeListArmyCommandExecutor implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length == 0) {
-            sender.sendMessage(ChatColor.RED + "Пожалуйста, укажите ник правителя.");
+        // Проверяем, является ли отправитель игроком
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ChatColor.RED + "Эту команду может выполнять только игрок.");
             return false;
         }
 
-        String rulerName = args[0];
-        Player ruler = Bukkit.getPlayer(rulerName); // Ищем игрока по нику
+        Player player = (Player) sender;
 
-        if (ruler == null || !rulerManager.isRuler(ruler)) {
-            sender.sendMessage(ChatColor.RED + "Нет правителя с таким ником.");
+        // Проверяем, является ли игрок правителем
+        if (!rulerManager.isRuler(player)) {
+            player.sendMessage(ChatColor.RED + "Вы не являетесь правителем.");
             return false;
         }
 
-        List<Player> team = rulerManager.getTeam(ruler);
-        if (team.isEmpty()) {
-            sender.sendMessage(ChatColor.GOLD + "Команда правителя " + rulerName + " пуста.");
-        } else {
-            sender.sendMessage(ChatColor.AQUA + "Команда правителя " + rulerName + ":");
-            for (Player member : team) {
-                sender.sendMessage(ChatColor.GREEN + "- " + member.getName());
-            }
+        // Получаем список армии правителя
+        List<Player> army = rulerManager.getTeam(player);
+
+        // Если армия пуста
+        if (army == null || army.isEmpty()) {
+            player.sendMessage(ChatColor.YELLOW + "Ваша армия пуста.");
+            return true;
+        }
+
+        // Отправляем список армии игроку
+        player.sendMessage(ChatColor.GREEN + "Ваши подданные (армия):");
+        for (Player soldier : army) {
+            player.sendMessage(ChatColor.GOLD + "- " + soldier.getName());
         }
 
         return true;
     }
 }
-
